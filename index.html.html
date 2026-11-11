@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Jepret</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: sticky search bar, filter strip, masonry grid of open-licensed photos, lightbox for detail */
+:root{
+  --bg:#f6f7f5; --surface:#ffffff; --fg:#1b2420; --muted:#5f6b66; --line:#dde3df;
+  --accent:#0f7b6c; --accent-fg:#ffffff; --chip:#e9eeeb; --ok:#1d7a3a; --warn:#9a6200;
+  --shade:rgba(10,16,14,.55);
+  --f-body:"Plus Jakarta Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#121614; --surface:#1a201d; --fg:#e8eeea; --muted:#9aa8a1; --line:#2a332f;
+  --accent:#3bb59f; --accent-fg:#0b1412; --chip:#232b28; --ok:#5cc47a; --warn:#e0a948;
+  --shade:rgba(0,0,0,.7); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121614; --surface:#1a201d; --fg:#e8eeea; --muted:#9aa8a1; --line:#2a332f;
+  --accent:#3bb59f; --accent-fg:#0b1412; --chip:#232b28; --ok:#5cc47a; --warn:#e0a948;
+  --shade:rgba(0,0,0,.7); color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font:15px/1.5 var(--f-body)}
+img{max-width:100%;display:block}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:1400px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+header{position:sticky;top:0;z-index:20;background:var(--bg);border-bottom:1px solid var(--line)}
+.bar{display:flex;align-items:center;gap:14px;padding-block:12px}
+.logo{font-weight:800;font-size:22px;letter-spacing:-.03em;display:flex;align-items:center;gap:8px;white-space:nowrap;cursor:pointer;background:none;border:0;padding:0}
+.logo i{width:22px;height:22px;border-radius:50%;border:3px solid var(--accent);position:relative;display:inline-block}
+.logo i::after{content:"";position:absolute;inset:4px;border-radius:50%;background:var(--accent)}
+form.search{flex:1;display:flex;min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:999px;overflow:hidden}
+form.search input{flex:1;min-width:0;border:0;background:transparent;padding:10px 16px;outline:none}
+form.search button{border:0;background:var(--accent);color:var(--accent-fg);font-weight:700;padding:0 18px;cursor:pointer}
+.savedbtn{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:9px 14px;cursor:pointer;font-weight:600;white-space:nowrap}
+.savedbtn b{color:var(--accent);font-variant-numeric:tabular-nums}
+
+.filters{display:flex;flex-wrap:wrap;gap:8px;padding-block:0 12px;align-items:center}
+.filters select{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:13px}
+.filters label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+.fgroup{display:flex;align-items:center;gap:6px}
+
+.intro{padding-block:28px 8px}
+.intro h1{font-size:clamp(26px,4vw,40px);line-height:1.1;letter-spacing:-.03em;margin:0 0 8px;text-wrap:balance}
+.intro p{color:var(--muted);margin:0;max-width:62ch}
+.chips{display:flex;gap:8px;flex-wrap:wrap;padding-block:14px 4px}
+.chip{background:var(--chip);border:0;border-radius:999px;padding:6px 13px;cursor:pointer;font-size:13px;font-weight:500}
+.chip:hover{background:var(--line)}
+
+.status{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;color:var(--muted);font-size:13px;padding-block:14px}
+.grid{columns:4 260px;column-gap:14px}
+.card{break-inside:avoid;margin:0 0 14px;position:relative;border-radius:10px;overflow:hidden;background:var(--chip);cursor:zoom-in}
+.card img{width:100%;height:auto;transition:transform .3s}
+.card:hover img{transform:scale(1.02)}
+.card .ov{position:absolute;inset:auto 0 0 0;padding:28px 10px 10px;background:linear-gradient(transparent,rgba(0,0,0,.7));color:#fff;display:flex;justify-content:space-between;align-items:flex-end;gap:8px;opacity:0;transition:opacity .2s}
+.card:hover .ov,.card:focus-within .ov{opacity:1}
+.ov .who{font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.heart{border:0;background:rgba(255,255,255,.92);color:#1b2420;width:34px;height:34px;border-radius:50%;cursor:pointer;flex:none;font-size:16px;line-height:1}
+.heart[aria-pressed="true"]{background:#0f7b6c;color:#fff}
+.tag{position:absolute;top:8px;left:8px;font:500 10.5px var(--f-mono);background:rgba(255,255,255,.92);color:#1b2420;padding:3px 7px;border-radius:5px;letter-spacing:.02em}
+@media (hover:none){.card .ov{opacity:1}}
+
+.more{display:flex;justify-content:center;padding-block:20px 48px}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:10px 20px;cursor:pointer;font-weight:600}
+.btn.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.empty{text-align:center;color:var(--muted);padding:48px 0}
+.skel{break-inside:avoid;margin:0 0 14px;border-radius:10px;background:var(--chip);animation:pulse 1.2s infinite alternate}
+@keyframes pulse{to{opacity:.5}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* lightbox */
+.lb{position:fixed;inset:0;z-index:50;background:var(--shade);display:flex;align-items:center;justify-content:center;padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.lbbox{background:var(--surface);border-radius:14px;width:min(1180px,100%);max-height:100%;overflow:auto;display:grid;grid-template-columns:minmax(0,1fr) 340px}
+.lbimg{background:#0c0f0e;display:flex;align-items:center;justify-content:center;min-height:300px}
+.lbimg img{max-height:82vh;width:auto;object-fit:contain}
+.lbinfo{padding:20px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.lbinfo h2{font-size:18px;margin:0;line-height:1.3;overflow-wrap:anywhere}
+.meta{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px}
+.meta dt{color:var(--muted)}.meta dd{margin:0;overflow-wrap:anywhere}
+.meta a{color:var(--accent)}
+.lic{display:inline-flex;gap:6px;align-items:center;font:500 12px var(--f-mono);padding:4px 8px;border-radius:6px;background:var(--chip)}
+.lic.ok{color:var(--ok)}.lic.warn{color:var(--warn)}
+.attr{font-size:12.5px;background:var(--chip);border-radius:8px;padding:10px;overflow-wrap:anywhere;color:var(--fg)}
+.actions{display:flex;flex-wrap:wrap;gap:8px}
+.x{position:fixed;top:max(12px,env(safe-area-inset-top,0px));right:max(12px,env(safe-area-inset-right,0px));z-index:51;border:0;width:40px;height:40px;border-radius:50%;background:var(--surface);color:var(--fg);font-size:20px;cursor:pointer}
+.nav{position:fixed;top:50%;z-index:51;border:0;width:44px;height:44px;border-radius:50%;background:var(--surface);color:var(--fg);font-size:20px;cursor:pointer;transform:translateY(-50%)}
+.nav.p{left:max(10px,env(safe-area-inset-left,0px))}.nav.n{right:max(10px,env(safe-area-inset-right,0px))}
+@media (max-width:860px){.lbbox{grid-template-columns:1fr}.lbimg img{max-height:55vh}.nav{display:none}}
+@media (max-width:560px){.bar{flex-wrap:wrap}.logo{order:1}.savedbtn{order:2;margin-left:auto}form.search{order:3;flex-basis:100%}}
+.toast{position:fixed;left:50%;bottom:max(20px,env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:13.5px;font-weight:600;z-index:60}
+footer{border-top:1px solid var(--line);color:var(--muted);font-size:12.5px;padding-block:20px}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="bar">
+      <button class="logo" id="home" aria-label="Kembali ke beranda"><i></i>jepret</button>
+      <form class="search" id="sform" role="search">
+        <input id="q" type="search" placeholder="Cari foto bebas pakai… (boleh bahasa Indonesia)" autocomplete="off" aria-label="Kata kunci">
+        <button type="submit">Cari</button>
+      </form>
+      <button class="savedbtn" id="savedbtn">Tersimpan <b id="savedn">0</b></button>
+    </div>
+    <div class="filters">
+      <div class="fgroup"><label for="fLic">Lisensi</label>
+        <select id="fLic"><option value="commercial">Boleh komersial</option><option value="all">Semua lisensi terbuka</option><option value="nocredit">Tanpa wajib kredit (CC0/PD)</option></select></div>
+      <div class="fgroup"><label for="fOri">Orientasi</label>
+        <select id="fOri"><option value="">Semua</option><option value="wide">Lanskap (slide)</option><option value="tall">Potret (story)</option><option value="square">Persegi</option></select></div>
+      <div class="fgroup"><label for="fSrc">Sumber</label>
+        <select id="fSrc"><option value="both">Openverse + Wikimedia</option><option value="ov">Openverse saja</option><option value="wm">Wikimedia saja</option></select></div>
+      <div class="fgroup"><label for="fKind">Jenis</label>
+        <select id="fKind"><option value="photograph">Foto</option><option value="">Foto & ilustrasi</option></select></div>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="intro" id="intro">
+    <h1 id="headline">Foto bebas pakai, lisensinya jelas di setiap gambar.</h1>
+    <p id="sub">Mencari sekaligus di Openverse dan Wikimedia Commons. Tanpa foto berbayar yang terselip, tanpa iklan, dan kredit siap salin untuk slide atau laporanmu.</p>
+    <div class="chips" id="chips"></div>
+  </section>
+  <div class="status"><span id="stat">Memuat…</span><span id="srcstat"></span></div>
+  <div class="grid" id="grid"></div>
+  <div class="more"><button class="btn" id="moreBtn" hidden>Muat lebih banyak</button></div>
+  <div id="sentinel"></div>
+</main>
+<footer><div class="wrap">Jepret menampilkan karya milik para kreatornya dari <a href="https://openverse.org" target="_blank" rel="noopener">Openverse</a> dan <a href="https://commons.wikimedia.org" target="_blank" rel="noopener">Wikimedia Commons</a>. Selalu cek halaman sumber sebelum memakai, terutama untuk foto berisi orang atau merek.</div></footer>
+
+<div id="lbwrap" hidden></div>
+
+<script>
+(()=>{
+const $=s=>document.querySelector(s);
+const grid=$("#grid"), stat=$("#stat"), srcstat=$("#srcstat"), moreBtn=$("#moreBtn");
+const CHIPS=["pantai","gunung","candi","batik","Bali","Raja Ampat","sawah","kopi","pasar tradisional","kota malam","hutan","festival","laut","kuliner","arsitektur","bunga"];
+
+/* Kamus kecil: sumber foto kebanyakan bertag bahasa Inggris */
+const DICT={pantai:"beach",gunung:"mountain",candi:"temple",sawah:"rice field",kopi:"coffee",pasar:"market",tradisional:"traditional",kota:"city",malam:"night",hutan:"forest",laut:"sea",kuliner:"food",makanan:"food",arsitektur:"architecture",bunga:"flower",danau:"lake",air:"water",terjun:"waterfall","air terjun":"waterfall",kucing:"cat",anjing:"dog",burung:"bird",langit:"sky",matahari:"sun",terbit:"sunrise",terbenam:"sunset",senja:"sunset",hujan:"rain",jalan:"street",rumah:"house",masjid:"mosque",gereja:"church",pura:"temple",museum:"museum",tari:"dance",tarian:"dance",orang:"people",anak:"children",kantor:"office",kerja:"work",laptop:"laptop",buku:"book",sekolah:"school",kampus:"campus",pesawat:"airplane",kereta:"train",kapal:"ship",perahu:"boat",pulau:"island",desa:"village",budaya:"culture",festival:"festival",musik:"music",konser:"concert",acara:"event",pernikahan:"wedding",hotel:"hotel",kamar:"room",kolam:"pool",renang:"swimming",wisata:"tourism",liburan:"holiday",alam:"nature",bambu:"bamboo",kain:"textile",tenun:"weaving",gamelan:"gamelan",wayang:"wayang",gedung:"building",jembatan:"bridge",sungai:"river",bukit:"hill",kebun:"garden",teh:"tea",buah:"fruit",sayur:"vegetable",ikan:"fish",terumbu:"coral",karang:"coral",penyu:"turtle"};
+function toEN(q){
+  let s=" "+q.toLowerCase().trim()+" ";
+  Object.keys(DICT).sort((a,b)=>b.length-a.length).forEach(k=>{s=s.replace(new RegExp(" "+k+"(?= )","g")," "+DICT[k])});
+  return s.trim();
+}
+
+let state={q:"",page:1,wmOffset:0,wmDone:false,ovDone:false,items:[],loading:false,view:"search"};
+let saved=load();
+function load(){try{return JSON.parse(localStorage.getItem("jepret-saved")||"[]")}catch(e){return[]}}
+function persist(){try{localStorage.setItem("jepret-saved",JSON.stringify(saved))}catch(e){} $("#savedn").textContent=saved.length}
+$("#savedn").textContent=saved.length;
+
+CHIPS.forEach(c=>{const b=document.createElement("button");b.className="chip";b.type="button";b.textContent=c;b.onclick=()=>{$("#q").value=c;search(c)};$("#chips").appendChild(b)});
+
+function filters(){return{lic:$("#fLic").value,ori:$("#fOri").value,src:$("#fSrc").value,kind:$("#fKind").value}}
+
+/* ---------- Openverse ---------- */
+async function fetchOV(q,page,f){
+  const p=new URLSearchParams({q,page,page_size:20,mature:"false"});
+  if(f.lic==="commercial")p.set("license_type","commercial");
+  if(f.lic==="nocredit")p.set("license","cc0,pdm");
+  if(f.ori)p.set("aspect_ratio",f.ori);
+  if(f.kind)p.set("category",f.kind);
+  const r=await fetch("https://api.openverse.org/v1/images/?"+p);
+  if(!r.ok)throw new Error("Openverse "+r.status);
+  const d=await r.json();
+  const items=(d.results||[]).map(x=>({
+    id:"ov-"+x.id,src:"Openverse · "+(x.source||x.provider||""),thumb:x.thumbnail||x.url,full:x.url,
+    title:x.title||"Tanpa judul",creator:x.creator||"Tidak diketahui",creatorUrl:x.creator_url||"",
+    page:x.foreign_landing_url,w:x.width,h:x.height,
+    license:licName(x.license,x.license_version),licUrl:x.license_url||"",
+    attribution:x.attribution||""
+  }));
+  return{items,done:page>=(d.page_count||1)||items.length===0};
+}
+function licName(l,v){l=(l||"").toLowerCase();if(l==="cc0")return"CC0";if(l==="pdm")return"Domain Publik";return"CC "+l.toUpperCase()+(v?" "+v:"")}
+
+/* ---------- Wikimedia Commons ---------- */
+async function fetchWM(q,offset,f){
+  const p=new URLSearchParams({action:"query",format:"json",origin:"*",generator:"search",gsrnamespace:"6",
+    gsrsearch:"filetype:bitmap "+q,gsrlimit:"20",gsroffset:String(offset),prop:"imageinfo",
+    iiprop:"url|size|extmetadata",iiurlwidth:"640",iiextmetadatafilter:"Artist|LicenseShortName|LicenseUrl|ObjectName|AttributionRequired|NonFree"});
+  const r=await fetch("https://commons.wikimedia.org/w/api.php?"+p);
+  if(!r.ok)throw new Error("Wikimedia "+r.status);
+  const d=await r.json();
+  const pages=Object.values((d.query&&d.query.pages)||{}).sort((a,b)=>(a.index||0)-(b.index||0));
+  let items=pages.map(pg=>{
+    const ii=(pg.imageinfo||[])[0];if(!ii)return null;
+    const m=ii.extmetadata||{};const g=k=>(m[k]&&m[k].value)||"";
+    const artist=strip(g("Artist"))||"Tidak diketahui";
+    const lic=g("LicenseShortName")||"Lihat sumber";
+    return{id:"wm-"+pg.pageid,src:"Wikimedia Commons",thumb:ii.thumburl||ii.url,full:ii.url,
+      title:strip(g("ObjectName"))||pg.title.replace(/^File:/,"").replace(/\.[a-z]+$/i,""),
+      creator:artist,creatorUrl:"",page:ii.descriptionurl,w:ii.width,h:ii.height,
+      license:lic,licUrl:g("LicenseUrl"),nonfree:g("NonFree")==="true",
+      attribution:"\""+(strip(g("ObjectName"))||pg.title.replace(/^File:/,""))+"\" oleh "+artist+", "+lic+", via Wikimedia Commons"};
+  }).filter(Boolean).filter(x=>!x.nonfree);
+  items=items.filter(x=>licenseOK(x.license,f.lic)&&oriOK(x,f.ori));
+  return{items,done:!(d.continue&&d.continue.gsroffset),next:d.continue?d.continue.gsroffset:offset+20};
+}
+function strip(h){const t=document.createElement("div");t.innerHTML=h;return(t.textContent||"").replace(/\s+/g," ").trim()}
+function licenseOK(l,mode){
+  const s=l.toLowerCase();
+  if(mode==="nocredit")return /cc0|public domain|pd/.test(s)&&!/nc/.test(s);
+  if(mode==="commercial")return !/\bnc\b|non-?commercial|-nc/.test(s);
+  return true;
+}
+function oriOK(x,o){if(!o||!x.w||!x.h)return true;const r=x.w/x.h;if(o==="wide")return r>1.15;if(o==="tall")return r<.87;return r>=.87&&r<=1.15}
+function needsCredit(l){return !/cc0|domain publik|public domain|^pd/i.test(l)}
+function commercialOK(l){return !/nc/i.test(l)}
+
+/* ---------- search flow ---------- */
+async function search(q){
+  state={q:q.trim(),page:1,wmOffset:0,wmDone:false,ovDone:false,items:[],loading:false,view:"search"};
+  grid.innerHTML="";
+  const has=!!state.q;
+  $("#headline").textContent=has?"“"+state.q+"”":"Foto bebas pakai, lisensinya jelas di setiap gambar.";
+  $("#sub").hidden=has;
+  if(!state.q)state.q="indonesia landscape";
+  await loadMore();
+}
+async function loadMore(){
+  if(state.loading||state.view!=="search")return;
+  const f=filters();
+  const wantOV=f.src!=="wm"&&!state.ovDone, wantWM=f.src!=="ov"&&!state.wmDone&&f.kind!=="illustration";
+  if(!wantOV&&!wantWM){moreBtn.hidden=true;return}
+  state.loading=true;moreBtn.hidden=true;showSkel(true);
+  stat.textContent="Mencari…";
+  const q=toEN(state.q);
+  const jobs=[
+    wantOV?fetchOV(q,state.page,f).catch(e=>({err:e})):Promise.resolve(null),
+    wantWM?fetchWM(q,state.wmOffset,f).catch(e=>({err:e})):Promise.resolve(null)
+  ];
+  const [ov,wm]=await Promise.all(jobs);
+  showSkel(false);
+  const notes=[];let fresh=[];
+  if(ov){if(ov.err){notes.push("Openverse tidak merespons");state.ovDone=true}else{fresh.push(ov.items);state.ovDone=ov.done;state.page++}}
+  if(wm){if(wm.err){notes.push("Wikimedia tidak merespons");state.wmDone=true}else{fresh.push(wm.items);state.wmDone=wm.done;state.wmOffset=wm.next}}
+  /* selang-seling supaya dua sumber tercampur rata */
+  const mixed=[];const mx=Math.max(0,...fresh.map(a=>a.length));
+  for(let i=0;i<mx;i++)fresh.forEach(a=>{if(a[i])mixed.push(a[i])});
+  const seen=new Set(state.items.map(x=>x.id));
+  const add=mixed.filter(x=>!seen.has(x.id));
+  state.items.push(...add);render(add);
+  state.loading=false;
+  stat.textContent=state.items.length?state.items.length+" foto ditampilkan":"";
+  srcstat.textContent=notes.join(" · ");
+  if(!state.items.length){
+    grid.innerHTML='<div class="empty">'+(notes.length===2?"Tidak bisa terhubung ke sumber foto. Periksa koneksi internet lalu coba lagi.":"Belum ada hasil. Coba kata kunci lain atau longgarkan filter lisensi.")+'</div>';
+  }
+  moreBtn.hidden=state.ovDone&&state.wmDone||!state.items.length;
+}
+function showSkel(on){
+  grid.querySelectorAll(".skel").forEach(s=>s.remove());
+  if(on)for(let i=0;i<8;i++){const s=document.createElement("div");s.className="skel";s.style.height=(160+((i*67)%140))+"px";grid.appendChild(s)}
+}
+function render(list){
+  const frag=document.createDocumentFragment();
+  list.forEach(x=>frag.appendChild(card(x)));
+  grid.appendChild(frag);
+}
+function card(x){
+  const el=document.createElement("figure");el.className="card";el.tabIndex=0;
+  const ratio=x.w&&x.h?x.h/x.w:0.7;
+  el.innerHTML='<img loading="lazy" alt="" style="aspect-ratio:'+(1/ratio).toFixed(3)+'"><span class="tag"></span><figcaption class="ov"><span class="who"></span><button class="heart" type="button" aria-label="Simpan foto">♡</button></figcaption>';
+  const img=el.querySelector("img");img.src=x.thumb;img.alt=x.title;
+  img.onerror=()=>{if(img.src!==x.full){img.src=x.full}else el.remove()};
+  el.querySelector(".tag").textContent=x.license;
+  el.querySelector(".who").textContent=x.creator;
+  const h=el.querySelector(".heart");setHeart(h,x.id);
+  h.onclick=e=>{e.stopPropagation();toggleSave(x);setHeart(h,x.id)};
+  el.onclick=()=>openLB(x);
+  el.onkeydown=e=>{if(e.key==="Enter")openLB(x)};
+  return el;
+}
+function setHeart(h,id){const on=saved.some(s=>s.id===id);h.setAttribute("aria-pressed",on);h.textContent=on?"♥":"♡"}
+function toggleSave(x){
+  const i=saved.findIndex(s=>s.id===x.id);
+  if(i>=0){saved.splice(i,1);toast("Dihapus dari tersimpan")}else{saved.unshift(x);toast("Disimpan")}
+  persist();
+}
+
+/* ---------- lightbox ---------- */
+let cur=null;
+function list(){return state.view==="saved"?saved:state.items}
+function openLB(x){
+  cur=x;const w=$("#lbwrap");w.hidden=false;document.body.style.overflow="hidden";
+  const credit=needsCredit(x.license),com=commercialOK(x.license);
+  w.innerHTML=`<div class="lb" id="lb"><div class="lbbox" role="dialog" aria-modal="true" aria-label="Detail foto">
+   <div class="lbimg"><img alt=""></div>
+   <div class="lbinfo">
+     <h2></h2>
+     <div style="display:flex;gap:6px;flex-wrap:wrap">
+       <span class="lic ${com?"ok":"warn"}">${com?"✓ Boleh komersial":"! Non-komersial saja"}</span>
+       <span class="lic ${credit?"warn":"ok"}">${credit?"Wajib cantumkan kredit":"✓ Tanpa wajib kredit"}</span>
+     </div>
+     <dl class="meta">
+       <dt>Kreator</dt><dd id="lbCreator"></dd>
+       <dt>Lisensi</dt><dd id="lbLic"></dd>
+       <dt>Ukuran</dt><dd>${x.w&&x.h?x.w+" × "+x.h+" px":"—"}</dd>
+       <dt>Sumber</dt><dd id="lbSrc"></dd>
+     </dl>
+     <div><div style="font-size:12px;color:var(--muted);margin-bottom:4px;font-weight:600">Teks kredit</div><div class="attr" id="lbAttr"></div></div>
+     <div class="actions">
+       <button class="btn primary" id="dl" type="button">Unduh</button>
+       <button class="btn" id="cp" type="button">Salin kredit</button>
+       <button class="btn" id="sv" type="button"></button>
+     </div>
+     <a id="pg" target="_blank" rel="noopener" style="font-size:13px;color:var(--accent)">Buka halaman asli ↗</a>
+   </div></div></div>
+   <button class="x" id="x" aria-label="Tutup">×</button>
+   <button class="nav p" id="pv" aria-label="Foto sebelumnya">‹</button><button class="nav n" id="nx" aria-label="Foto berikutnya">›</button>`;
+  const im=w.querySelector(".lbimg img");im.src=x.thumb;im.alt=x.title;
+  const hi=new Image();hi.onload=()=>{im.src=x.full};hi.src=x.full;
+  w.querySelector("h2").textContent=x.title;
+  const cr=$("#lbCreator");if(x.creatorUrl){const a=document.createElement("a");a.href=x.creatorUrl;a.target="_blank";a.rel="noopener";a.textContent=x.creator;cr.appendChild(a)}else cr.textContent=x.creator;
+  const lc=$("#lbLic");if(x.licUrl){const a=document.createElement("a");a.href=x.licUrl;a.target="_blank";a.rel="noopener";a.textContent=x.license;lc.appendChild(a)}else lc.textContent=x.license;
+  $("#lbSrc").textContent=x.src;
+  const attrText=x.attribution||("\""+x.title+"\" oleh "+x.creator+", "+x.license);
+  $("#lbAttr").textContent=attrText;
+  $("#pg").href=x.page||x.full;
+  const sv=$("#sv");const upd=()=>sv.textContent=saved.some(s=>s.id===x.id)?"♥ Tersimpan":"♡ Simpan";upd();
+  sv.onclick=()=>{toggleSave(x);upd();if(state.view==="saved")showSaved(true)};
+  $("#cp").onclick=()=>copy(attrText);
+  $("#dl").onclick=()=>download(x);
+  $("#x").onclick=closeLB;$("#lb").onclick=e=>{if(e.target.id==="lb")closeLB()};
+  $("#pv").onclick=()=>step(-1);$("#nx").onclick=()=>step(1);
+  $("#x").focus();
+}
+function step(d){const l=list();const i=l.findIndex(s=>s.id===cur.id);const n=l[i+d];if(n)openLB(n)}
+function closeLB(){$("#lbwrap").hidden=true;$("#lbwrap").innerHTML="";document.body.style.overflow="";cur=null}
+document.addEventListener("keydown",e=>{if(!cur)return;if(e.key==="Escape")closeLB();if(e.key==="ArrowRight")step(1);if(e.key==="ArrowLeft")step(-1)});
+
+async function download(x){
+  const name=(x.title||"foto").replace(/[^\w\- ]+/g,"").trim().slice(0,60).replace(/\s+/g,"-")||"foto";
+  const ext=(x.full.split("?")[0].match(/\.(jpe?g|png|webp|gif|tiff?)$/i)||[,"jpg"])[1];
+  try{
+    const r=await fetch(x.full,{mode:"cors"});if(!r.ok)throw 0;
+    const b=await r.blob();const u=URL.createObjectURL(b);
+    const a=document.createElement("a");a.href=u;a.download=name+"."+ext;document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(u),4000);toast("Mengunduh… jangan lupa kreditnya");
+  }catch(e){window.open(x.full,"_blank","noopener");toast("Dibuka di tab baru: klik kanan lalu Simpan gambar")}
+}
+async function copy(t){
+  try{await navigator.clipboard.writeText(t);toast("Kredit disalin")}
+  catch(e){const r=document.createRange();r.selectNodeContents($("#lbAttr"));const s=getSelection();s.removeAllRanges();s.addRange(r);toast("Teks dipilih, tekan Ctrl+C")}
+}
+let tt;function toast(m){let t=$(".toast");if(!t){t=document.createElement("div");t.className="toast";t.setAttribute("role","status");document.body.appendChild(t)}t.textContent=m;clearTimeout(tt);tt=setTimeout(()=>t.remove(),2200)}
+
+/* ---------- saved view ---------- */
+function showSaved(stay){
+  state.view="saved";grid.innerHTML="";$("#headline").textContent="Tersimpan";$("#sub").hidden=true;moreBtn.hidden=true;srcstat.textContent="";
+  stat.textContent=saved.length?saved.length+" foto tersimpan di browser ini":"";
+  if(!saved.length)grid.innerHTML='<div class="empty">Belum ada foto tersimpan. Tekan ♡ pada foto untuk mengumpulkannya di sini.</div>';
+  else render(saved);
+}
+$("#savedbtn").onclick=()=>showSaved();
+$("#home").onclick=()=>{$("#q").value="";search("")};
+$("#sform").onsubmit=e=>{e.preventDefault();search($("#q").value)};
+["fLic","fOri","fSrc","fKind"].forEach(id=>$("#"+id).onchange=()=>{if(state.view==="search")search(state.q==="indonesia landscape"?"":state.q)});
+moreBtn.onclick=loadMore;
+new IntersectionObserver(es=>{if(es[0].isIntersecting&&state.items.length&&!moreBtn.hidden)loadMore()},{rootMargin:"600px"}).observe($("#sentinel"));
+
+search("");
+})();
+</script>
+</body>
+</html>
